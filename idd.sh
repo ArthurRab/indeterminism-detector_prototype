@@ -1,14 +1,32 @@
-set -eu
+function get_layer_tar () {
+  image_num=$1
+  layer_num=$2
+  start_num=$3
+
+  echo `cut -d '"' -f$(($(($layer_num*2))+$start_num)) < "image${image_num}/manifest.json"`
+}
+
+function get_layer_id () {
+  layer_tar=$1
+
+  echo `echo $layer_tar | cut -d '/' -f1`
+}
+
+##CURRENTLY DOES NOT DETECT IF THERE ARE LAYERS WHICH ARE THE SAME BUT IN A DIFFERENT ORDER
+
+set -eux
 
 tar1=$1
 tar2=$2
 
-mkdir temp
+echo REMOVE -p
+mkdir -p temp
 cd temp
 
 for i in 1 2
 do
-  mkdir image$i
+  echo REMOVE -p
+  mkdir -p image$i
   cd image$i
   eval tar -xf ../../'$'tar$i "manifest.json"
   start=1
@@ -25,8 +43,67 @@ do
   cd ..
 done
 
-echo $start1 $start2
+image1_done=0
+image2_done=0
 
+i=0
+while true
+do
+  image1_layer_tar=`get_layer_tar 1 $i $start1`
+  image2_layer_tar=`get_layer_tar 2 $i $start2`
+
+  if ((${#image1_layer_tar} < 74))
+  then
+    image1_done=1
+  fi
+  if ((${#image2_layer_tar} < 74))
+  then
+    image2_done=1
+  fi
+
+  if [ $image1_done = 1 ] || [ $image2_done = 1 ]
+  then
+    break
+  fi
+
+  if [ $image1_layer_tar != $image2_layer_tar ]
+  then
+    for i in 1 2
+    do
+      eval image${i}_layer_id=`eval get_layer_id '$'image${i}_layer_tar`
+      tar -xf ../$tar1 $image1_layer_tar
+
+      eval mkdir -p '$'image${i}_layer_id
+
+      tar -xf $image1_layer_tar -C image${i}_layer_id
+    done
+    diff -rq ./image1_layer_id ./image2_layer_id
+  fi
+
+  i=`expr $i + 1`
+done
+
+for j in 1 2
+do
+  k=$i
+  if eval [ '$'image${j}_done != 1 ]
+  then
+    eval start='$'start${j}
+    eval echo Layers only in '$'tar${j}:
+    while true
+    do
+      image_layer_tar=`get_layer_tar $j $k $start`
+      if (( ${#image_layer_tar} < 74))
+      then
+        break
+      fi
+
+      echo `get_layer_id $image_layer_tar`
+      k=`expr $k + 1`
+
+    done
+  fi
+done
 
 cd ..
 rm -rf temp
