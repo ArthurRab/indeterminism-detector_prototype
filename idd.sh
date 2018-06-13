@@ -14,7 +14,7 @@ function get_layer_id () {
 
 ##CURRENTLY DOES NOT DETECT IF THERE ARE LAYERS WHICH ARE THE SAME BUT IN A DIFFERENT ORDER
 
-set -eux
+set -u #ex
 
 tar1=$1
 tar2=$2
@@ -68,16 +68,18 @@ do
 
   if [ $image1_layer_tar != $image2_layer_tar ]
   then
-    for i in 1 2
+    for j in 1 2
     do
-      eval image${i}_layer_id=`eval get_layer_id '$'image${i}_layer_tar`
-      tar -xf ../$tar1 $image1_layer_tar
+      cd image$j
+      eval image${j}_layer_id=`eval get_layer_id '$'image${j}_layer_tar`
+      eval tar -xf ../../'$'tar$j '$'image${j}_layer_tar
+      cd ..
+      eval mkdir -p '$'image${j}_layer_tar
 
-      eval mkdir -p '$'image${i}_layer_id
-
-      tar -xf $image1_layer_tar -C image${i}_layer_id
+      eval tar -xf image$j/'$'image${j}_layer_tar --directory='$'image${j}_layer_tar
     done
-    diff -rq ./image1_layer_id ./image2_layer_id
+
+    diff -r ./$image1_layer_id ./$image2_layer_id
   fi
 
   i=`expr $i + 1`
@@ -104,6 +106,8 @@ do
     done
   fi
 done
+
+echo DONE
 
 cd ..
 rm -rf temp
