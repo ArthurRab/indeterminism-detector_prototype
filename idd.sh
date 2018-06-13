@@ -19,6 +19,9 @@ set -u #ex
 tar1=$1
 tar2=$2
 
+base1=$(basename $tar1)
+base2=$(basename $tar2)
+
 echo REMOVE -p
 mkdir -p temp
 cd temp
@@ -74,12 +77,11 @@ do
       eval image${j}_layer_id=`eval get_layer_id '$'image${j}_layer_tar`
       eval tar -xf ../../'$'tar$j '$'image${j}_layer_tar
       cd ..
-      eval mkdir -p '$'image${j}_layer_tar
+      eval mkdir -p '$'base$j/'$'image${j}_layer_tar
 
-      eval tar -xf image$j/'$'image${j}_layer_tar --directory='$'image${j}_layer_tar
+      eval tar -xf image$j/'$'image${j}_layer_tar --directory='$'base$j/'$'image${j}_layer_tar
     done
-
-    diff -r ./$image1_layer_id ./$image2_layer_id
+    diff -r $base1/$image1_layer_id $base2/$image2_layer_id
   fi
 
   i=`expr $i + 1`
@@ -106,8 +108,6 @@ do
     done
   fi
 done
-
-echo DONE
 
 cd ..
 rm -rf temp
