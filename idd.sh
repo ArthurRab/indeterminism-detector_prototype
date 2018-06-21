@@ -1,3 +1,4 @@
+# Parses a manifest.json to get the nth layer tar path (n = $layer_num)
 function get_layer_tar () {
   image_num=$1
   layer_num=$2
@@ -6,15 +7,14 @@ function get_layer_tar () {
   echo `cut -d '"' -f$(($(($layer_num*2))+$start_num)) < "image${image_num}/manifest.json"`
 }
 
+# Parses the layer tar path to get the layer id
 function get_layer_id () {
   layer_tar=$1
 
   echo `echo $layer_tar | cut -d '/' -f1`
 }
 
-##CURRENTLY DOES NOT DETECT IF THERE ARE LAYERS WHICH ARE THE SAME BUT IN A DIFFERENT ORDER
-
-set -u #ex
+set -uex
 
 tar1=$1
 tar2=$2
@@ -26,6 +26,8 @@ echo REMOVE -p
 mkdir -p temp
 cd temp
 
+# Creates directories for the images where relevant files will be stored
+# Files include: manifest.json and the layer tars
 for i in 1 2
 do
   echo REMOVE -p
@@ -42,10 +44,11 @@ do
       break
     fi
   done
-  eval start$i=$start
+  eval start$i=$start # Stores where the first layer tar path appears in each image
   cd ..
 done
 
+# Keeps track of which images have already had all layers looked at
 image1_done=0
 image2_done=0
 
@@ -55,6 +58,7 @@ do
   image1_layer_tar=`get_layer_tar 1 $i $start1`
   image2_layer_tar=`get_layer_tar 2 $i $start2`
 
+  # If the attempt to find the next layer tar failed, the image is out of layers
   if ((${#image1_layer_tar} < 74))
   then
     image1_done=1
@@ -64,11 +68,14 @@ do
     image2_done=1
   fi
 
+  # If an image is out of layers we break an move onto the case where one image has extra layers
   if [ $image1_done = 1 ] || [ $image2_done = 1 ]
   then
     break
   fi
 
+  # If the layer tar paths (and thus the layer ids) don't match between the images,
+  # we extract the layer tars and call diff to check how they differ
   if [ $image1_layer_tar != $image2_layer_tar ]
   then
     for j in 1 2
@@ -84,9 +91,13 @@ do
     diff -r $base1/$image1_layer_id $base2/$image2_layer_id
   fi
 
+  # Increment which layers we are comparing
   i=`expr $i + 1`
 done
 
+# Print out any remaning layers after the other image ran out
+# NOTE: The loop is called on both, but only one will have extra layers,
+# they cannot both have extra layers, as those will be paired up
 for j in 1 2
 do
   k=$i
@@ -109,5 +120,6 @@ do
   fi
 done
 
+# Cleanup
 cd ..
 rm -rf temp
