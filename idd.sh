@@ -14,10 +14,64 @@ function get_layer_id () {
   echo `echo $layer_tar | cut -d '/' -f1`
 }
 
-set -uex
+set -ue #x
 
-tar1=$1
-tar2=$2
+# Setting empty variables to not crash as unbound variables
+tar1=""
+tar2=""
+diff_args=""
+
+
+OPTIND=1
+
+# Parse arguments (flags and parameters)
+# -q: quite - only print out which files differ, not how
+# -e: exit upon first difference in layers
+# -h: help screen
+
+while [[ $# > 0 ]]
+do
+  if [[ $1 =~ -.* ]]
+  then
+    while getopts "qe" opt # ADD h
+    do
+      case $opt in
+        q)
+          diff_args=q
+        ;;
+        e)
+          exit_on_first_diff=true
+        ;;
+        #h)
+        #  echo h - NOT IMPLEMENTED YET
+        #;;
+        *)
+          exit 1
+        ;;
+      esac
+    done
+    shift
+  else
+    if [[ ${#tar1} == 0 ]]
+    then
+      tar1=$1
+      shift
+    elif [[ ${#tar2} == 0 ]]
+    then
+      tar2=$1
+      shift
+    else
+      echo 'Too many arguments (exactly 2 required)' >&2
+      exit 1
+    fi
+  fi
+done
+
+if [[ ${#tar2} == 0 ]]
+then
+  echo 'Not enough arguments (exactly 2 required)' >&2
+  exit 1
+fi
 
 base1=$(basename $tar1)
 base2=$(basename $tar2)
@@ -88,9 +142,12 @@ do
 
       eval tar -xf image$j/'$'image${j}_layer_tar --directory='$'base$j/'$'image${j}_layer_tar
     done
-    diff -r $base1/$image1_layer_id $base2/$image2_layer_id
+    diff -r$diff_args $base1/$image1_layer_id $base2/$image2_layer_id
   fi
-
+  if [ exit_on_first_diff = true ]
+  then
+    exit 0
+  fi
   # Increment which layers we are comparing
   i=`expr $i + 1`
 done
