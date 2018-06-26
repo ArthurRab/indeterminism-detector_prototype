@@ -4,14 +4,14 @@ function get_layer_tar () {
   layer_num=$2
   start_num=$3
 
-  echo `cut -d '"' -f$(($(($layer_num*2))+$start_num)) < "image${image_num}/manifest.json"`
+  cut -d '"' -f$(($(($layer_num*2))+$start_num)) < "image${image_num}/manifest.json"
 }
 
 # Parses the layer tar path to get the layer id
 function get_layer_id () {
   layer_tar=$1
 
-  echo `echo $layer_tar | cut -d '/' -f1`
+  echo $layer_tar | cut -d '/' -f1
 }
 
 set -ue #x
@@ -89,10 +89,10 @@ do
   start=1
   while [ true ]
   do
-    start=`expr $start + 1`
-    if [ `cut -d '"' -f${start} < "manifest.json"` = "Layers" ]
+    start=$(expr $start + 1)
+    if [ $(cut -d '"' -f${start} < "manifest.json") = "Layers" ]
     then
-      start=`expr $start + 2`
+      start=$(expr $start + 2)
       break
     fi
   done
@@ -107,8 +107,8 @@ image2_done=0
 i=0
 while true
 do
-  image1_layer_tar=`get_layer_tar 1 $i $start1`
-  image2_layer_tar=`get_layer_tar 2 $i $start2`
+  image1_layer_tar=$(get_layer_tar 1 $i $start1)
+  image2_layer_tar=$(get_layer_tar 2 $i $start2)
 
   # If the attempt to find the next layer tar failed, the image is out of layers
   if ((${#image1_layer_tar} < 71))
@@ -133,7 +133,7 @@ do
     for j in 1 2
     do
       cd image$j
-      eval image${j}_layer_id=`eval get_layer_id '$'image${j}_layer_tar`
+      eval image${j}_layer_id=$(eval get_layer_id '$'image${j}_layer_tar)
       eval tar -xf ../../'$'tar$j '$'image${j}_layer_tar
       cd ..
       eval mkdir -p '$'base$j/'$'image${j}_layer_tar
@@ -147,7 +147,7 @@ do
     exit 0
   fi
   # Increment which layers we are comparing
-  i=`expr $i + 1`
+  i=$(expr $i + 1)
 done
 
 # Print out any remaning layers after the other image ran out
@@ -168,8 +168,8 @@ do
         break
       fi
 
-      echo `get_layer_id $image_layer_tar`
-      k=`expr $k + 1`
+      echo $(get_layer_id $image_layer_tar)
+      k=$(expr $k + 1)
 
     done
   fi
