@@ -1,14 +1,20 @@
 #!/bin/bash
 
-set -ux
+set -u #x
 
 idd=$1
-out = $2
+out=$2
 shift 2
 
 echo "" > $out
 
-for i in $#
+while [[ $# > 0 ]]
 do
-  eval sh $idd '$'$i '$'$(expr $i + 1) >> $out
+  echo "" >> $out
+  echo $(basename $1 | cut -d "_" -f2) >> $out
+  echo $1 $2
+  echo "$(sh $idd $1 $2 2>&1)" >> $out
+  shift 2
 done
+
+cat $out

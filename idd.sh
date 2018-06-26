@@ -31,7 +31,7 @@ OPTIND=1
 
 while [[ $# > 0 ]]
 do
-  if [[ $1 =~ -.* ]]
+  if [[ $1 =~ ^-.* ]]
   then
     while getopts "qe" opt # ADD h
     do
@@ -76,7 +76,6 @@ fi
 base1=$(basename $tar1)
 base2=$(basename $tar2)
 
-echo REMOVE -p
 mkdir -p temp
 cd temp
 
@@ -84,7 +83,6 @@ cd temp
 # Files include: manifest.json and the layer tars
 for i in 1 2
 do
-  echo REMOVE -p
   mkdir -p image$i
   cd image$i
   eval tar -xf ../../'$'tar$i "manifest.json"
@@ -113,11 +111,11 @@ do
   image2_layer_tar=`get_layer_tar 2 $i $start2`
 
   # If the attempt to find the next layer tar failed, the image is out of layers
-  if ((${#image1_layer_tar} < 74))
+  if ((${#image1_layer_tar} < 71))
   then
     image1_done=1
   fi
-  if ((${#image2_layer_tar} < 74))
+  if ((${#image2_layer_tar} < 71))
   then
     image2_done=1
   fi
@@ -142,7 +140,7 @@ do
 
       eval tar -xf image$j/'$'image${j}_layer_tar --directory='$'base$j/'$'image${j}_layer_tar
     done
-    diff -r$diff_args $base1/$image1_layer_id $base2/$image2_layer_id
+    diff -r$diff_args --no-dereference $base1/$image1_layer_id $base2/$image2_layer_id
   fi
   if [ exit_on_first_diff = true ]
   then
@@ -179,4 +177,4 @@ done
 
 # Cleanup
 cd ..
-rm -rf temp
+# rm -rf temp

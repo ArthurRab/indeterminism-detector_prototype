@@ -1,7 +1,7 @@
-load("//:idd.bzl", "test_pckgs_reproducibility")
+package(default_visibility = ["//visibility:public"])
 
-# Example use of the macro
-test_pckgs_reproducibility(
-    name = "test",
-    packages = ["git", "gcc"]
-)
+exports_files([
+    "idd.bzl",
+    "run_idd_on_all_targets.sh",
+    "idd.sh",
+])
