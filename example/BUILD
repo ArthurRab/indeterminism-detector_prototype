@@ -6,5 +6,6 @@ test_pckgs_reproducibility(
     packages = [
         "default-jre",
         "git",
+        "ca-certificates-java"
     ],
 )
