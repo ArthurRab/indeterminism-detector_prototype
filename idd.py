@@ -2,6 +2,53 @@ from filecmp import dircmp
 import os
 import tarfile
 from json import JSONDecoder
+import shutil
+import sys
+
+
+class ImageTar():
+    id_counter = 0
+
+    def __init__(self, tar_path, contents_path=""):
+        self.tar_id = ImageTar.id_counter
+        ImageTar.id_counter += 1
+
+        folder = contents_path+"tar{}_contents".format(str(self.tar_id))
+
+        if(os.path.isdir(folder)):
+            shutil.rmtree(folder)
+        os.mkdir(folder)
+
+        self.contents_folder = os.path.abspath(folder) + "/"
+
+        self.tar = tarfile.open(tar_path, mode='r')
+
+        decoder = JSONDecoder()
+        manifest = decoder.decode(self.tar.extractfile(
+            "manifest.json").read().decode("utf-8"))[0]
+        self.image_id = manifest["Config"].split(".")[0]
+        self.layers = manifest["Layers"]
+
+    def get_diff_layers(self, other_tar):
+        diff_layers = []
+        for i in range(min(len(self.layers), len(other_tar.layers))):
+            if self.layers[i] != other_tar.layers[i]:
+                diff_layers.append(i)
+        return diff_layers
+
+    def get_path_to_layer_contents(self, layer_num):
+        path = self.contents_folder+"layer_"+str(layer_num) + "/"
+        if not os.path.isdir(path):
+            os.mkdir(path)
+            self.tar.extract(self.layers[layer_num], path=self.contents_folder)
+            layer_tar = tarfile.open(
+                self.contents_folder + self.layers[layer_num])
+            print(path)
+            layer_tar.extractall(path)
+        return path
+
+    def cleanup(self):
+        shutil.rmtree(self.contents_folder)
 
 
 def getPath(path, prepath=""):
@@ -40,25 +87,29 @@ def compdirs(left, right, diff=None, path=""):
 
 
 def findDifferences(tar1_path, tar2_path):
-    tar_pair = (tar1_path, tar2_path)
-    manifests = []
+    tar1 = ImageTar(tar1_path)
+    tar2 = ImageTar(tar2_path)
 
-    decoder = JSONDecoder()
-    for i in range(1, 3):
-        tar_path = tar_pair[i-1]
+    diff_layers = tar1.get_diff_layers(tar2)
 
-        folder = "tar{}_contents".format(str(i))
-        if(os.path.isdir(folder)):
-            os.rmdir(folder)
-        os.mkdir(folder)
+    for layer in diff_layers:
+        print()
+        files = compdirs(tar1.get_path_to_layer_contents(layer),
+                         tar2.get_path_to_layer_contents(layer))
+        print("Layer {}:\n".format(layer))
+        text = ("Only in image 1:\n", "Only in image 2:\n",
+                "Differing common files:\n")
+        for i in range(3):
+            if len(files[i]) != 0:
+                print(text[i])
+            for file in files[i]:
+                print(file)
+    print()
+    if len(tar1.layers) != len(tar2.layers):
+        print("NOTE: Images have different number of layers\n")
 
-        tar = tarfile.open(tar_path, mode='r')
-
-        manifest = decoder.decode(tar.extractfile(
-            "manifest.json").read().decode("utf-8"))[0]
-        manifests.append(manifest)
-
-        print(manifest["Layers"])
+    tar1.cleanup()
+    tar2.cleanup()
 
 
-findDifferences("testing_data/1.tar", "testing_data/2.tar")
+findDifferences(sys.argv[1], sys.argv[2])
