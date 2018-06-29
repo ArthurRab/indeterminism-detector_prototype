@@ -15,6 +15,7 @@ class ImageTar():
         self.tar_id = ImageTar.id_counter
         ImageTar.id_counter += 1
 
+        # Create a folder where the contents of layers in this image will be extracted
         folder = contents_path+"tar{}_contents".format(str(self.tar_id))
 
         if(os.path.isdir(folder)):
@@ -25,13 +26,14 @@ class ImageTar():
 
         self.tar = tarfile.open(tar_path, mode='r')
 
+        # Extract the list of layer paths from the manigest.json file.
         decoder = JSONDecoder()
         manifest = decoder.decode(self.tar.extractfile(
             "manifest.json").read().decode("utf-8"))[0]
-        self.image_id = manifest["Config"].split(".")[0]
         self.layers = manifest["Layers"]
 
     def get_diff_layers(self, other_tar):
+        # Returns a list of indicies of layers which differ between self and other_tar
         diff_layers = []
         for i in range(min(len(self.layers), len(other_tar.layers))):
             if self.layers[i] != other_tar.layers[i]:
@@ -39,6 +41,8 @@ class ImageTar():
         return diff_layers
 
     def get_path_to_layer_contents(self, layer_num):
+        # Returns the path to the root of the folder where the contents of the
+        # given layer are kept. If it has not yet been extracted, it also extracts it.
         path = self.contents_folder+"layer_"+str(layer_num) + "/"
         if not os.path.isdir(path):
             os.mkdir(path)
@@ -53,12 +57,13 @@ class ImageTar():
         return path
 
     def cleanup(self):
+        # Removes all the artifacts this object produced
         shutil.rmtree(self.contents_folder)
 
 
 def getPath(path, prepath=""):
-    # Adds a '/' to the end of the given string if that string is a path to a directory
-    # as opposed to a file
+    # Adds a '/' to the end of the given string if that string is a path to a
+    # directory as opposed to a file
     if os.path.isdir(prepath+"/"+path):
         path += "/"
 
@@ -66,6 +71,10 @@ def getPath(path, prepath=""):
 
 
 def compdirs(left, right, diff=None, path=""):
+    # Compares all files and directories that differ among the two given
+    # directories. Returns a 3-tuple of the form (left_only, right_only, diff_files)
+    # where left_only and right_only are lists of files unique to the corresponding
+    # directory, and diff_files is a list of common files which are not identical.
     if diff == None:
         diff = dircmp(left, right)
 
@@ -80,6 +89,7 @@ def compdirs(left, right, diff=None, path=""):
                 os.readlink(left+"/"+path+funny_file) == os.readlink(right+"/"+path+funny_file)):
             diff_files.append(path+funny_file)
 
+    # Recursive call on subdirectories
     for diff_dir in diff.subdirs:
         oil, oir, df = compdirs(left, right,
                                 diff.subdirs[diff_dir], path+diff_dir+"/")
@@ -92,6 +102,9 @@ def compdirs(left, right, diff=None, path=""):
 
 
 def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_differences=float("inf"), print_differences=False, cancel_cleanup=False):
+    # Main part of the program
+    # Uses all of the other functions to print out, in a human-readable form,
+    # the differences between the two given image tarballs
     tar1 = ImageTar(tar1_path)
     tar2 = ImageTar(tar2_path)
 
@@ -100,20 +113,21 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
     diff_count = 0
 
     for layer in diff_layers:
+        # Stop if reaches max depth or max number of differences (optional params)
         if layer >= max_depth:
             break
         if diff_count >= max_differences:
             break
 
+        # Get the 3-tuple of lists of files that differ between the layers
         files = compdirs(tar1.get_path_to_layer_contents(layer),
                          tar2.get_path_to_layer_contents(layer))
 
+        # If the layer has differences to report, print its index
         print()
         if files != ([], [], []):
             print("Layer {}:\n".format(layer))
             diff_count += 1
-
-        text = ("Only in image 1:\n", "Only in image 2:\n")
 
         differing_common_files = files[2]
 
@@ -121,8 +135,10 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
             print("Differing common files:\n")
         for f in differing_common_files:
             if not print_differences:
+                # print the file name if verbosity was not requested
                 print(f)
             else:
+                # print the file name and try to see the differences between the files
                 print(f+":")
                 try:
                     file1 = open(tar1.get_path_to_layer_contents(layer)+f)
@@ -132,7 +148,11 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
                         print(line)
                     print("EOF\n")
                 except:
+                    # unable to compare the files, probably because at
+                    # least one of them is binary. Skip it.
                     print("Skipping binary file.\n")
+
+        text = ("Only in image 1:\n", "Only in image 2:\n")
 
         for i in range(2):
             if len(files[i]) > 0:
@@ -145,6 +165,7 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
         print("NOTE: Images have different number of layers\n")
 
     if not cancel_cleanup:
+        # Delete all artifacts unless asked not to
         tar1.cleanup()
         tar2.cleanup()
 
