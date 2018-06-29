@@ -4,10 +4,11 @@ import tarfile
 from json import JSONDecoder
 import shutil
 import sys
+import argparse
 
 
 class ImageTar():
-    id_counter = 0
+    id_counter = 1
 
     def __init__(self, tar_path, contents_path=""):
         self.tar_id = ImageTar.id_counter
@@ -47,7 +48,7 @@ class ImageTar():
                 layer_tar.extractall(path)
             except:
                 print("Some files were unable to be extracted from image: {} layer: {}. Are your base layers different?".format(
-                    self.tar_id, layer_num))
+                    self.tar_id, layer_num), file=sys.stderr)
         return path
 
     def cleanup(self):
@@ -96,10 +97,11 @@ def findDifferences(tar1_path, tar2_path):
     diff_layers = tar1.get_diff_layers(tar2)
 
     for layer in diff_layers:
-        print()
+
         files = compdirs(tar1.get_path_to_layer_contents(layer),
                          tar2.get_path_to_layer_contents(layer))
 
+        print()
         if files != ([], [], []):
             print("Layer {}:\n".format(layer))
 
@@ -114,6 +116,7 @@ def findDifferences(tar1_path, tar2_path):
     if len(tar1.layers) != len(tar2.layers):
         print("NOTE: Images have different number of layers\n")
 
+
 '''
     tar1.cleanup()
     tar2.cleanup()
@@ -121,4 +124,19 @@ def findDifferences(tar1_path, tar2_path):
 
 
 if __name__ == "__main__":
-    findDifferences(sys.argv[1], sys.argv[2])
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("tar1", help="First image tar path", type=str)
+    parser.add_argument("tar2", help="Second image tar path", type=str)
+    parser.add_argument("-c", "--cancel_cleanup",
+                        help="Leaves all the extracted files after program finishes running NOT IMPLEMENTED", action="store_true")
+    parser.add_argument("-l", "--max_layer",
+                        help="Only compares until given layer (exclusive, starting at 0) NOT IMPLEMENTED", type=int, default=-1)
+    parser.add_argument("-e", "--max_differences",
+                        help="Only compares until this many differences are found NOT IMPLEMENTED", type=int, default=-1)
+    parser.add_argument("-v", "--verbose",
+                        help="Also print differences between files NOT IMPLEMENTED", action="store_true")
+
+    args = parser.parse_args()
+
+    findDifferences(args.tar1, args.tar2)

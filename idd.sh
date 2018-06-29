@@ -25,7 +25,7 @@ diff_args=""
 OPTIND=1
 
 # Parse arguments (flags and parameters)
-# -q: quite - only print out which files differ, not how
+# -q: quiet - only print out which files differ, not how
 # -e: exit upon first difference in layers
 # -h: help screen
 
