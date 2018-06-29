@@ -155,13 +155,13 @@ if __name__ == "__main__":
     parser.add_argument("tar1", help="First image tar path", type=str)
     parser.add_argument("tar2", help="Second image tar path", type=str)
     parser.add_argument("-c", "--cancel_cleanup",
-                        help="Leaves all the extracted files after program finishes running", action="store_true")
+                        help="leaves all the extracted files after program finishes running", action="store_true")
     parser.add_argument("-l", "--max_layer",
-                        help="Only compares until given layer (exclusive, starting at 0)", type=int, default=float("inf"))
+                        help="only compares until given layer (exclusive, starting at 0)", type=int, default=float("inf"))
     parser.add_argument("-d", "--max_differences",
-                        help="Stops after MAX_DIFFERENCES different layers are found", type=int, default=float("inf"))
+                        help="stops after MAX_DIFFERENCES different layers are found", type=int, default=float("inf"))
     parser.add_argument("-v", "--verbose",
-                        help="Print differences between files (as well as their names)", action="store_true")
+                        help="print differences between files (as well as their names)", action="store_true")
 
     args = parser.parse_args()
 
