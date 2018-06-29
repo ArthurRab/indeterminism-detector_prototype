@@ -5,6 +5,7 @@ from json import JSONDecoder
 import shutil
 import sys
 import argparse
+import difflib
 
 
 class ImageTar():
@@ -101,6 +102,8 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
     for layer in diff_layers:
         if layer >= max_depth:
             break
+        if diff_count >= max_differences:
+            break
 
         files = compdirs(tar1.get_path_to_layer_contents(layer),
                          tar2.get_path_to_layer_contents(layer))
@@ -110,16 +113,32 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
             print("Layer {}:\n".format(layer))
             diff_count += 1
 
-        text = ("Only in image 1:\n", "Only in image 2:\n",
-                "Differing common files:\n")
-        for i in range(3):
-            if len(files[i]) != 0:
-                print(text[i])
-            for file in files[i]:
-                print(file)
+        text = ("Only in image 1:\n", "Only in image 2:\n")
 
-        if diff_count >= max_differences:
-            break
+        differing_common_files = files[2]
+
+        if len(differing_common_files) > 0:
+            print("Differing common files:\n")
+        for f in differing_common_files:
+            if not print_differences:
+                print(f)
+            else:
+                print(f+":")
+                try:
+                    file1 = open(tar1.get_path_to_layer_contents(layer)+f)
+                    file2 = open(tar2.get_path_to_layer_contents(layer)+f)
+
+                    for line in difflib.unified_diff(list(file1), list(file2)):
+                        print(line)
+                    print("EOF\n")
+                except:
+                    print("Skipping binary file.\n")
+
+        for i in range(2):
+            if len(files[i]) > 0:
+                print(text[i])
+            for f in files[i]:
+                print(f)
 
     print()
     if len(tar1.layers) != len(tar2.layers):
@@ -142,7 +161,7 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--max_differences",
                         help="Stops after MAX_DIFFERENCES different layers are found", type=int, default=float("inf"))
     parser.add_argument("-v", "--verbose",
-                        help="Print differences between files (as well as their names) NOT IMPLEMENTED", action="store_true")
+                        help="Print differences between files (as well as their names)", action="store_true")
 
     args = parser.parse_args()
 
