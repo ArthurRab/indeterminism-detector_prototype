@@ -90,13 +90,17 @@ def compdirs(left, right, diff=None, path=""):
     return left_only, right_only, diff_files
 
 
-def findDifferences(tar1_path, tar2_path):
+def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_differences=float("inf"), print_differences=False, cancel_cleanup=False):
     tar1 = ImageTar(tar1_path)
     tar2 = ImageTar(tar2_path)
 
     diff_layers = tar1.get_diff_layers(tar2)
 
+    diff_count = 0
+
     for layer in diff_layers:
+        if layer >= max_depth:
+            break
 
         files = compdirs(tar1.get_path_to_layer_contents(layer),
                          tar2.get_path_to_layer_contents(layer))
@@ -104,6 +108,7 @@ def findDifferences(tar1_path, tar2_path):
         print()
         if files != ([], [], []):
             print("Layer {}:\n".format(layer))
+            diff_count += 1
 
         text = ("Only in image 1:\n", "Only in image 2:\n",
                 "Differing common files:\n")
@@ -112,15 +117,17 @@ def findDifferences(tar1_path, tar2_path):
                 print(text[i])
             for file in files[i]:
                 print(file)
+
+        if diff_count >= max_differences:
+            break
+
     print()
     if len(tar1.layers) != len(tar2.layers):
         print("NOTE: Images have different number of layers\n")
 
-
-'''
-    tar1.cleanup()
-    tar2.cleanup()
-'''
+    if not cancel_cleanup:
+        tar1.cleanup()
+        tar2.cleanup()
 
 
 if __name__ == "__main__":
@@ -129,14 +136,15 @@ if __name__ == "__main__":
     parser.add_argument("tar1", help="First image tar path", type=str)
     parser.add_argument("tar2", help="Second image tar path", type=str)
     parser.add_argument("-c", "--cancel_cleanup",
-                        help="Leaves all the extracted files after program finishes running NOT IMPLEMENTED", action="store_true")
+                        help="Leaves all the extracted files after program finishes running", action="store_true")
     parser.add_argument("-l", "--max_layer",
-                        help="Only compares until given layer (exclusive, starting at 0) NOT IMPLEMENTED", type=int, default=-1)
-    parser.add_argument("-e", "--max_differences",
-                        help="Only compares until this many differences are found NOT IMPLEMENTED", type=int, default=-1)
+                        help="Only compares until given layer (exclusive, starting at 0)", type=int, default=float("inf"))
+    parser.add_argument("-d", "--max_differences",
+                        help="Stops after MAX_DIFFERENCES different layers are found", type=int, default=float("inf"))
     parser.add_argument("-v", "--verbose",
-                        help="Also print differences between files NOT IMPLEMENTED", action="store_true")
+                        help="Print differences between files (as well as their names) NOT IMPLEMENTED", action="store_true")
 
     args = parser.parse_args()
 
-    findDifferences(args.tar1, args.tar2)
+    findDifferences(args.tar1, args.tar2, cancel_cleanup=args.cancel_cleanup,
+                    max_differences=args.max_differences, max_depth=args.max_layer, print_differences=args.verbose)
