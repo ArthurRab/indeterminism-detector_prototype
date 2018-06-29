@@ -43,8 +43,11 @@ class ImageTar():
             self.tar.extract(self.layers[layer_num], path=self.contents_folder)
             layer_tar = tarfile.open(
                 self.contents_folder + self.layers[layer_num])
-            print(path)
-            layer_tar.extractall(path)
+            try:
+                layer_tar.extractall(path)
+            except:
+                print("Some files were unable to be extracted from image: {} layer: {}. Are your base layers different?".format(
+                    self.tar_id, layer_num))
         return path
 
     def cleanup(self):
@@ -96,7 +99,10 @@ def findDifferences(tar1_path, tar2_path):
         print()
         files = compdirs(tar1.get_path_to_layer_contents(layer),
                          tar2.get_path_to_layer_contents(layer))
-        print("Layer {}:\n".format(layer))
+
+        if files != ([], [], []):
+            print("Layer {}:\n".format(layer))
+
         text = ("Only in image 1:\n", "Only in image 2:\n",
                 "Differing common files:\n")
         for i in range(3):
@@ -108,8 +114,11 @@ def findDifferences(tar1_path, tar2_path):
     if len(tar1.layers) != len(tar2.layers):
         print("NOTE: Images have different number of layers\n")
 
+'''
     tar1.cleanup()
     tar2.cleanup()
+'''
 
 
-findDifferences(sys.argv[1], sys.argv[2])
+if __name__ == "__main__":
+    findDifferences(sys.argv[1], sys.argv[2])
