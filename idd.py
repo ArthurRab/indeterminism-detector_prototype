@@ -49,12 +49,11 @@ class ImageTar():
             self.tar.extract(self.layers[layer_num], path=self.contents_folder)
             layer_tar = tarfile.open(
                 self.contents_folder + self.layers[layer_num])
-            for member in layer_tar:
-                try:
-                    layer_tar.extract(member, path)
-                except:
-                    print("Some files were unable to be extracted from image: {} layer: {}. Are your base layers different?".format(
-                        self.tar_id, layer_num), file=sys.stderr)
+            try:
+                layer_tar.extractall(path)
+            except:
+                print("Some files were unable to be extracted from image: {} layer: {}. Are your base layers different?".format(
+                    self.tar_id, layer_num), file=sys.stderr)
         return path
 
     def cleanup(self):
