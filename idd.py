@@ -123,11 +123,12 @@ def findDifferences(tar1_path, tar2_path, max_depth=float("inf"), max_difference
         files = compdirs(tar1.get_path_to_layer_contents(layer),
                          tar2.get_path_to_layer_contents(layer))
 
-        # If the layer has differences to report, print its index
-        print()
-        if files != ([], [], []):
-            print("Layer {}:\n".format(layer))
-            diff_count += 1
+        print("\nLayer {}:\n".format(layer))
+        diff_count += 1
+
+        # If the layer has no differences to report
+        if files == ([], [], []):
+            print("No differences found, but layer ids are different.")
 
         differing_common_files = files[2]
 
