@@ -80,11 +80,14 @@ def compdirs(left, right, diff=None, path=""):
 
     left_only = [getPath(path + i, left) for i in diff.left_only]
     right_only = [getPath(path + i, left) for i in diff.right_only]
-    diff_files = []
-    for f in diff.common_files:
+    diff_files = [path + i for i in diff.diff_files]
+
+    # This sometimes mislabels different files as same (since it uses cmp with shall=True),
+    # so we double check with shallow=False
+    for f in diff.same_files:
         try:
             if not cmp(left+path+f, right+path+f, shallow=False):
-                diff_files.append(f)
+                diff_files.append(path+f)
         except Exception as e:
             print("Error while comparing the two version of "+path+f, e)
 
