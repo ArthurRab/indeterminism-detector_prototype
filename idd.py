@@ -1,3 +1,4 @@
+from __future__ import print_function
 from filecmp import dircmp, cmp
 import os
 import tarfile
@@ -84,6 +85,8 @@ def compdirs(left, right, diff=None, path=""):
 
     # This sometimes mislabels different files as same (since it uses cmp with shall=True),
     # so we double check with shallow=False
+
+    # TODO: Do something about diff.funny_files
     for f in diff.same_files:
         try:
             if not cmp(left+path+f, right+path+f, shallow=False):
