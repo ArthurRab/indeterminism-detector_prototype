@@ -1,6 +1,7 @@
 # indeterminism-detector_prototype
 Tool to detect which files cause indeterminism in the building of docker images.
 
+<pre>
 usage: idd.py [-h] [-c] [-l MAX_LAYER] [-d MAX_DIFFERENCES] [-v] tar1 tar2
 
 positional arguments:
@@ -18,3 +19,4 @@ optional arguments:
                         stops after MAX_DIFFERENCES different layers are found
   -v, --verbose         print differences between files (as well as their
                         names)
+</pre>
