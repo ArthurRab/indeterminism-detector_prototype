@@ -29,35 +29,26 @@ class ImageTar():
 
             Instance:
               tar_id: int - This objects id, used to determine where it stores
-              its
-              extracted contents
+                its extracted contents
               contents_folder: str - The path to the folder where we store
-              temporary
-              extracted files
+                temporary extracted files
               tar: file - The image's tarball as a file open for reading
               layers: list of str - Chronological list of the path to each
-              layer's
-              tarball within the original tar
+                layer's tarball within the original tar
 
             Static:
               id_counter: int - Counter to keep track of each ImageTar's object
-              id
-              (for
-              giving it a contents folder)
+                id (for giving it a contents folder)
           """
   id_counter = 1
 
   def __init__(self, tar_path, contents_path=""):
     """Parameters:
 
-                      tar_path: str, relative or absolute path to the given
-                      tarball
-                      contents_path: str, path where the tar's content folder
-                      will
-                      be
-                      created
-                                    by default, it is in the current directory
-                    """
+      tar_path: str, relative or absolute path to the given tarball
+      contents_path: str, path where the tar's content folder will be created by
+        default, it is in the current directory
+    """
 
     self.tar_id = ImageTar.id_counter
     ImageTar.id_counter += 1
@@ -220,7 +211,7 @@ def findDifferences(tar1_path,
     diff_files = files[2]
 
     if len(diff_files) > 0:
-      print("Differing common files:\n")
+      print("Common files which differ:\n")
     for f in diff_files:
       if not print_differences:
         # print the file name if verbosity was not requested
@@ -236,8 +227,8 @@ def findDifferences(tar1_path,
             print(line)
           print("EOF\n")
         except:
-          # unable to compare the files, probably because at
-          # least one of them is binary. Skip it.
+          # unable to print the files, probably because at
+          # least one of them is binary. Skipping it.
           print("Skipping binary file.\n")
 
     text = ("Only in image 1:\n", "Only in image 2:\n")
@@ -258,14 +249,14 @@ def findDifferences(tar1_path,
 if __name__ == "__main__":
   """Examples of usage:
 
-  Basic:
-    python idd.py path/to/image1.tar path/to/image2.tar
+    Basic:
+        python idd.py path/to/image1.tar path/to/image2.tar
 
-  Including file content differences:
-    python -v idd.py path/to/image1.tar path/to/image2.tar
+    Including file content differences:
+        python -v idd.py path/to/image1.tar path/to/image2.tar
 
-  Only compare first 4 layers, and stop after a difference was found
-    python -d -l 4 idd.py path/to/image1.tar path/to/image2.tar
+    Only compare first 4 layers, and stop after a difference was found
+        python -d -l 4 idd.py path/to/image1.tar path/to/image2.tar
 
   """
   parser = argparse.ArgumentParser()
