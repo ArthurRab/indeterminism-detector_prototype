@@ -121,8 +121,8 @@ def compdirs(left, right, diff=None, path=""):
   if diff == None:
     diff = dircmp(left, right)
 
-  left_only = [os.path.join(path, i, left) for i in diff.left_only]
-  right_only = [os.path.join(path, i, right) for i in diff.right_only]
+  left_only = [os.path.join(path, i) for i in diff.left_only]
+  right_only = [os.path.join(path, i) for i in diff.right_only]
   diff_files = [os.path.join(path, i) for i in diff.diff_files]
 
   # This sometimes mislabels different files as same (since it uses cmp with shall=True),
@@ -151,8 +151,13 @@ def compdirs(left, right, diff=None, path=""):
   # Recursive call on subdirectories (dicrmp does not automatically compare
   # subdirectories, diff.diff_files only has files from the base directory)
   for diff_dir in diff.subdirs:
-    oil, oir, df = compdirs(left, right, diff.subdirs[diff_dir],
-                            os.path.join(path, diff_dir))
+    new_path = os.path.join(path, diff_dir)
+
+    #Avoid following symlinks to directories (loops and redirects to outside directories)
+    if os.path.islink(os.path.join(left, new_path)) or os.path.islink(
+        os.path.join(right, new_path)):
+      continue
+    oil, oir, df = compdirs(left, right, diff.subdirs[diff_dir], new_path)
 
     left_only += oil
     right_only += oir
