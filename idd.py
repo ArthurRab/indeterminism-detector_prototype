@@ -1,21 +1,50 @@
-from __future__ import print_function
-from filecmp import dircmp, cmp
-import os
-import tarfile
-from json import JSONDecoder
-import shutil
-import sys
-import argparse
-import difflib
-import atexit
-"""Relevant parts of the structure of a valid image tarball (tarball.tar):
+"""Compares two image tarballs and finds how their layers differ.
+
+Compares two images layer by layer and prints out which layers differ
+and what files differ per layer.
+
+
+usage: idd.py [-h] [-c] [-d] [-f] [-l MAX_LAYER] [-v] tar1 tar2
+
+positional arguments:
+  tar1                  First image tar path
+  tar2                  Second image tar path
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -c, --cancel_cleanup  leaves all the extracted files after program finishes
+                        running
+  -d, --first_diff      stops after a pair of layers which differ are found
+  -f, --force           run even if the images don't have the same number of
+                        layers
+  -l MAX_LAYER, --max_layer MAX_LAYER
+                        only compares until given layer (exclusive, starting
+                        at 0)
+  -v, --verbose         print differences between files (as well as their
+                        names)
+
+
+
+Examples of usage:
+
+  Basic:
+      python idd.py path/to/image1.tar path/to/image2.tar
+
+  Including file content differences:
+      python -v idd.py path/to/image1.tar path/to/image2.tar
+
+  Only compare first 4 layers, and stop after a difference was found
+      python -d -l 4 idd.py path/to/image1.tar path/to/image2.tar
+
+
+Relevant parts of the structure of a valid image tarball (tarball.tar):
 
   tarball.tar/
     manifest.json
-    <layer1_id>/
-      layer.tar
-    <layer2_id>/
-      layer.tar
+      <layer1_id>/
+        layer.tar
+      <layer2_id>/
+        layer.tar
     ...
 
 The manifest.json should have a field named 'layers' which has the paths to
@@ -23,44 +52,57 @@ the layer.tar's in the same order as the layers were installed:
 Ex. "layers" : ["<layer1_id>/layer.tar", "<layer2_id>/layer.tar"]
 """
 
+from __future__ import print_function
+import argparse
+import atexit
+import difflib
+import filecmp
+import json
+import os
+import shutil
+import sys
+import tarfile
 
-class ImageTar():
+
+class ImageTar(object):
   """Fields:
 
-            Instance:
-              tar_id: int - This objects id, used to determine where it stores
-                its extracted contents
-              contents_folder: str - The path to the folder where we store
-                temporary extracted files
-              tar: file - The image's tarball as a file open for reading
-              layers: list of str - Chronological list of the path to each
-                layer's tarball within the original tar
+              Instance:
+                tar_id: int - This objects id, used to determine where it stores
+                  its extracted contents
+                contents_folder: str - The path to the folder where we store
+                  temporary extracted files
+                tar: file - The image's tarball as a file open for reading
+                layers: list of str - Chronological list of the path to each
+                  layer's tarball within the original tar
 
-            Static:
-              id_counter: int - Counter to keep track of each ImageTar's object
-                id (for giving it a contents folder)
-          """
+              Static:
+                id_counter: int - Counter to keep track of each ImageTar's
+                object
+                  id (for giving it a contents folder)
+            """
   id_counter = 1
 
   def __init__(self, tar_path, contents_path=""):
-    """Parameters:
+    """Initialize an ImageTar object.
 
+    Args:
       tar_path: str, relative or absolute path to the given tarball
-      contents_path: str, path where the tar's content folder will be created by
-        default, it is in the current directory
+      contents_path: str, path where the tar's content folder will be
+        created by default, it is in the current directory
     """
 
     self.tar_id = ImageTar.id_counter
     ImageTar.id_counter += 1
 
-    # Create a folder where the contents of layers in this image will be extracted
-    # If the script is called normally, would produce tar1_contents and
-    # tar2_contents folders in the working directory
+    # Create a folder where the contents of layers in this image will be
+    # extracted. If the script is called normally, would produce tar1_contents
+    # and tar2_contents folders in the working directory
     # All files created by this object will be placed in here
     folder = os.path.join(contents_path, "tar{}_contents".format(
         str(self.tar_id)))
 
-    if (os.path.isdir(folder)):
+    if os.path.isdir(folder):
       shutil.rmtree(folder)
     os.mkdir(folder)
 
@@ -69,7 +111,7 @@ class ImageTar():
     self.tar = tarfile.open(tar_path, mode="r")
 
     # Extract the list of layer paths from the manigest.json file.
-    decoder = JSONDecoder()
+    decoder = json.JSONDecoder()
     try:
       manifest = decoder.decode(
           self.tar.extractfile("manifest.json").read().decode("utf-8"))[0]
@@ -77,12 +119,13 @@ class ImageTar():
     except Exception as e:
       print(
           e,
-          "Unable to extract manifest.json from image {}. \
-              Make sure it is a valid image tarball".format(self.tar_id),
+          "Unable to extract manifest.json from image {}."
+          "Make sure it is a valid image tarball".format(self.tar_id),
           file=sys.stderr)
 
   def get_diff_layer_indicies(self, other_tar):
-    # Returns a list of indicies of layers which differ between self and other_tar
+    # Returns a list of indicies of layers which differ
+    # between self and other_tar
     diff_layers = []
     for i in range(min(len(self.layers), len(other_tar.layers))):
       if self.layers[i] != other_tar.layers[i]:
@@ -90,9 +133,19 @@ class ImageTar():
     return diff_layers
 
   def get_path_to_layer_contents(self, layer_num):
-    # Returns the path to the root of the folder where the contents of the
-    # given layer are kept. If it has not yet been extracted, it also extracts it.
-    # Example path: tar1_contents/layer2 where the numbers can vary
+    """Returns path to contents of given layer.
+
+    Returns the path to the root of the folder where the contents of the
+    given layer are kept. If it has not yet been extracted,
+    it also extracts it.
+    Example path: tar1_contents/layer2 where the numbers can vary
+
+    Args:
+      layer_num: int representing the index of the layer (in order of creation)
+
+    Returns:
+      str representing path to the extracted layer contents
+    """
     path = os.path.join(self.contents_folder, "layer_" + str(layer_num))
     if not os.path.isdir(path):
       os.mkdir(path)
@@ -103,7 +156,7 @@ class ImageTar():
         layer_tar.extractall(path)
       except:
         print(
-            "Some files were unable to be extracted from image: {} layer: {}. Are your base layers different?".
+            "Some files were unable to be extracted from image: {} layer: {}".
             format(self.tar_id, layer_num),
             file=sys.stderr)
     return path
@@ -114,23 +167,36 @@ class ImageTar():
 
 
 def compdirs(left, right, diff=None, path=""):
-  # Compares all files and directories that differ among the two given
-  # directories. Returns a 3-tuple of the form (left_only, right_only, diff_files)
-  # where left_only and right_only are lists of files unique to the corresponding
-  # directory, and diff_files is a list of common files which are not identical.
-  if diff == None:
-    diff = dircmp(left, right)
+  """Recursively compares the given directories.
+
+  Args:
+    left: str path to first directory
+    right: str path to second directory
+    diff: filecmp.dircmp object, if you already have one. Mainly for recursive
+      calls
+    path: str for recursive calls. Remembers the path from starting directory to
+      the one we are currently at
+
+  Returns:
+    3-tuple of the form (left_only, right_only, diff_files) where left_only
+    and right_only are lists of paths to files unique to the corresponding
+    directory, and diff_files is a list of paths to common files which are
+    not identical.
+  """
+
+  if diff is None:
+    diff = filecmp.dircmp(left, right)
 
   left_only = [os.path.join(path, i) for i in diff.left_only]
   right_only = [os.path.join(path, i) for i in diff.right_only]
   diff_files = [os.path.join(path, i) for i in diff.diff_files]
 
-  # This sometimes mislabels different files as same (since it uses cmp with shall=True),
-  # so we double check with shallow=False
+  # This sometimes mislabels different files as same (since it uses cmp with
+  # shallow=True), so we double check with shallow=False
 
   for f in diff.same_files:
     try:
-      if not cmp(
+      if not filecmp.cmp(
           os.path.join(left, path, f),
           os.path.join(right, path, f),
           shallow=False):
@@ -139,7 +205,7 @@ def compdirs(left, right, diff=None, path=""):
       print("Error while comparing the two version of " + os.path.join(path, f),
             e)
 
-  # Checks for symbolic links (dircmp classifies ones that point to
+  # Checks for symbolic links (filecmp.dircmp classifies ones that point to
   # non-existant files as funny)
   for funny_file in diff.funny_files:
     if not (os.path.islink(os.path.join(left, path, funny_file)) and
@@ -153,7 +219,8 @@ def compdirs(left, right, diff=None, path=""):
   for diff_dir in diff.subdirs:
     new_path = os.path.join(path, diff_dir)
 
-    #Avoid following symlinks to directories (loops and redirects to outside directories)
+    # Avoid following symlinks to directories
+    # (loops and redirects to outside directories)
     if os.path.islink(os.path.join(left, new_path)) or os.path.islink(
         os.path.join(right, new_path)):
       continue
@@ -166,17 +233,25 @@ def compdirs(left, right, diff=None, path=""):
   return left_only, right_only, diff_files
 
 
-def findDifferences(tar1_path,
-                    tar2_path,
-                    max_depth=float("inf"),
-                    stop_at_first_difference=False,
-                    print_differences=False,
-                    cancel_cleanup=False,
-                    force=False):
-  # Main part of the program
-  # Uses all of the other functions to print out, in a human-readable form,
-  # the differences between the two given image tarballs
+def find_differences(tar1_path,
+                     tar2_path,
+                     max_depth=float("inf"),
+                     stop_at_first_difference=False,
+                     print_differences=False,
+                     cancel_cleanup=False,
+                     force=False):
+  """Prints out a human-readable comparison between image tarballs.
 
+  Args:
+    tar1_path: str path to first tarball
+    tar2_path: str path to second tarball
+    max_depth: int, max layer index to go to
+    stop_at_first_difference: bool, whether or not to exit after
+      first difference
+    print_differences: bool, print file differences, not just names
+    cancel_cleanup: bool, leave the extracted artifacts for exploration
+    force: bool, don't exit if images have different layer counts
+  """
   tar1 = ImageTar(tar1_path)
   tar2 = ImageTar(tar2_path)
 
@@ -215,7 +290,7 @@ def findDifferences(tar1_path,
 
     diff_files = files[2]
 
-    if len(diff_files) > 0:
+    if diff_files > 0:
       print("Common files which differ:\n")
     for f in diff_files:
       if not print_differences:
@@ -239,7 +314,7 @@ def findDifferences(tar1_path,
     text = ("Only in image 1:\n", "Only in image 2:\n")
 
     for i in range(2):
-      if len(files[i]) > 0:
+      if files[i]:
         print(text[i])
       for f in files[i]:
         print(f)
@@ -252,18 +327,6 @@ def findDifferences(tar1_path,
 
 
 if __name__ == "__main__":
-  """Examples of usage:
-
-    Basic:
-        python idd.py path/to/image1.tar path/to/image2.tar
-
-    Including file content differences:
-        python -v idd.py path/to/image1.tar path/to/image2.tar
-
-    Only compare first 4 layers, and stop after a difference was found
-        python -d -l 4 idd.py path/to/image1.tar path/to/image2.tar
-
-  """
   parser = argparse.ArgumentParser()
 
   parser.add_argument("tar1", help="First image tar path", type=str)
@@ -297,7 +360,7 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
 
-  findDifferences(
+  find_differences(
       tar1_path=args.tar1,
       tar2_path=args.tar2,
       cancel_cleanup=args.cancel_cleanup,
