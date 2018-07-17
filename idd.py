@@ -157,13 +157,13 @@ class ImageTar(object):
         layer_tar.extractall(path)
       except tarfile.ExtractError as e:
         print(
-            "Some files were unable to be extracted from image: {} layer: {}".
+            "Some files were unable to be extracted from image: {} layer: {}\n".
             format(self.tar_id, layer_num),
             e,
             file=sys.stderr)
       except OSError as e:
         print(
-            "Some files were unable to be extracted from image: {} layer: {}".
+            "Some files were unable to be extracted from image: {} layer: {}\n".
             format(self.tar_id, layer_num),
             e,
             file=sys.stderr)
@@ -276,8 +276,8 @@ def compare_files(file1_path, file2_path):
     None
   """
   try:
-    file1 = open(file1_path, 'r')
-    file2 = open(file2_path, 'r')
+    file1 = open(file1_path, "r")
+    file2 = open(file2_path, "r")
 
     for line in difflib.unified_diff(list(file1), list(file2)):
       print(line)
@@ -288,25 +288,13 @@ def compare_files(file1_path, file2_path):
     print(e, "Failed to open file for comparison")
 
 
-def find_differences(tar1_path,
-                     tar2_path,
-                     max_depth=float("inf"),
-                     stop_at_first_difference=False,
-                     print_differences=False,
-                     cancel_cleanup=False,
-                     force=False):
+def main():
   """Prints out a human-readable comparison between image tarballs.
-
-  Args:
-    tar1_path: str path to first tarball
-    tar2_path: str path to second tarball
-    max_depth: int, max layer index to go to
-    stop_at_first_difference: bool, whether or not to exit after
-      first difference
-    print_differences: bool, print file differences, not just names
-    cancel_cleanup: bool, leave the extracted artifacts for exploration
-    force: bool, don't exit if images have different layer counts
   """
+
+  (tar1_path, tar2_path, cancel_cleanup, stop_at_first_difference, max_depth,
+   print_differences, force) = parse_arguments()
+
   tar1 = ImageTar(tar1_path)
   tar2 = ImageTar(tar2_path)
 
@@ -360,6 +348,7 @@ def find_differences(tar1_path,
 
         if check_file_human_redable(file1_path) and \
             check_file_human_redable(file2_path):
+
           compare_files(file1_path, file2_path)
         else:
           print("Skipping binary file.\n")
@@ -379,7 +368,12 @@ def find_differences(tar1_path,
   print()
 
 
-if __name__ == "__main__":
+def parse_arguments():
+  """Parses command line arguments for this script.
+
+  Returns:
+    tuple containing all of the arguments
+  """
   parser = argparse.ArgumentParser()
 
   parser.add_argument("tar1", help="First image tar path", type=str)
@@ -413,11 +407,9 @@ if __name__ == "__main__":
 
   args = parser.parse_args()
 
-  find_differences(
-      tar1_path=args.tar1,
-      tar2_path=args.tar2,
-      cancel_cleanup=args.cancel_cleanup,
-      stop_at_first_difference=args.first_diff,
-      max_depth=args.max_layer,
-      print_differences=args.verbose,
-      force=args.force)
+  return (args.tar1, args.tar2, args.cancel_cleanup, args.first_diff,
+          args.max_layer, args.verbose, args.force)
+
+
+if __name__ == "__main__":
+  main()
