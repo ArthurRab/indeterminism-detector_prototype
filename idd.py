@@ -66,22 +66,21 @@ import tarfile
 
 
 class ImageTar(object):
-  """Fields:
+  """Wrapper around TarFile for specific use with image tarballs.
 
-              Instance:
-                tar_id: int - This objects id, used to determine where it stores
-                  its extracted contents
-                contents_folder: str - The path to the folder where we store
-                  temporary extracted files
-                tar: file - The image's tarball as a file open for reading
-                layers: list of str - Chronological list of the path to each
-                  layer's tarball within the original tar
+  Attributes:
+    tar_id: int - This objects id, used to determine where it stores
+      its extracted contents
+    contents_folder: str - The path to the folder where we store
+      temporary extracted files
+    tar: TarFile - The image's tarball as a file open for reading
+    layers: list of str - Chronological list of the path to each
+      layer's tarball within the original tar
 
-              Static:
-                id_counter: int - Counter to keep track of each ImageTar's
-                object
-                  id (for giving it a contents folder)
-            """
+  Class Variables:
+    id_counter: int - Counter to keep track of each ImageTar's object id
+    (for giving it a contents folder)
+    """
   id_counter = 1
 
   def __init__(self, tar_path, contents_path=""):
