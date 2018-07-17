@@ -60,6 +60,7 @@ import filecmp
 import json
 import os
 import shutil
+import string
 import sys
 import tarfile
 
@@ -116,7 +117,7 @@ class ImageTar(object):
       manifest = decoder.decode(
           self.tar.extractfile("manifest.json").read().decode("utf-8"))[0]
       self.layers = manifest["Layers"]
-    except Exception as e:
+    except tarfile.ExtractError as e:
       print(
           e,
           "Unable to extract manifest.json from image {}."
@@ -154,10 +155,11 @@ class ImageTar(object):
           os.path.join(self.contents_folder, self.layers[layer_num]))
       try:
         layer_tar.extractall(path)
-      except:
+      except tarfile.ExtractError as e:
         print(
             "Some files were unable to be extracted from image: {} layer: {}".
             format(self.tar_id, layer_num),
+            e,
             file=sys.stderr)
     return path
 
@@ -195,15 +197,11 @@ def compdirs(left, right, diff=None, path=""):
   # shallow=True), so we double check with shallow=False
 
   for f in diff.same_files:
-    try:
-      if not filecmp.cmp(
-          os.path.join(left, path, f),
-          os.path.join(right, path, f),
-          shallow=False):
-        diff_files.append(os.path.join(path, f))
-    except Exception as e:
-      print("Error while comparing the two version of " + os.path.join(path, f),
-            e)
+    if not filecmp.cmp(
+        os.path.join(left, path, f),
+        os.path.join(right, path, f),
+        shallow=False):
+      diff_files.append(os.path.join(path, f))
 
   # Checks for symbolic links (filecmp.dircmp classifies ones that point to
   # non-existant files as funny)
@@ -231,6 +229,34 @@ def compdirs(left, right, diff=None, path=""):
     diff_files += df
 
   return left_only, right_only, diff_files
+
+
+def check_file_human_redable(f):
+  """Returns true if under 30% of the files characters are non-printable.
+
+  Useful for avoiding printing out binary files
+
+  Args:
+    f: file or str representing path to the file
+
+  Returns:
+    bool which is true iff under 30% of the files characters are
+    non-printable/binary
+  """
+
+  if isinstance(f, str):
+    f = open(f, "r")
+
+  chars = 0
+  binary_chars = 0
+
+  for line in f:
+    for char in line:
+      if char not in string.printable:
+        binary_chars += 1
+    chars += 1
+
+  return float(binary_chars) / float(chars) < 0.3
 
 
 def find_differences(tar1_path,
@@ -290,7 +316,7 @@ def find_differences(tar1_path,
 
     diff_files = files[2]
 
-    if diff_files > 0:
+    if diff_files:
       print("Common files which differ:\n")
     for f in diff_files:
       if not print_differences:
@@ -299,16 +325,24 @@ def find_differences(tar1_path,
       else:
         # print the file name and try to see the differences between the files
         print(f + ":")
-        try:
-          file1 = open(os.path.join(tar1.get_path_to_layer_contents(layer), f))
-          file2 = open(os.path.join(tar2.get_path_to_layer_contents(layer), f))
 
-          for line in difflib.unified_diff(list(file1), list(file2)):
-            print(line)
-          print("EOF\n")
-        except:
-          # unable to print the files, probably because at
-          # least one of them is binary. Skipping it.
+        file1_path = os.path.join(tar1.get_path_to_layer_contents(layer), f)
+        file2_path = os.path.join(tar2.get_path_to_layer_contents(layer), f)
+
+        if check_file_human_redable(file1_path) and \
+            check_file_human_redable(file2_path):
+          try:
+            file1 = open(file1_path)
+            file2 = open(file2_path)
+
+            for line in difflib.unified_diff(list(file1), list(file2)):
+              print(line)
+            print()
+          except OSError as e:
+            # Unable to print the files, probably because at
+            # least one of them is binary. Skipping it.
+            print(e, "Failed to open file for comparison")
+        else:
           print("Skipping binary file.\n")
 
     text = ("Only in image 1:\n", "Only in image 2:\n")
@@ -318,6 +352,7 @@ def find_differences(tar1_path,
         print(text[i])
       for f in files[i]:
         print(f)
+      print()
 
     # Stop here if the user requested so
     if stop_at_first_difference:
