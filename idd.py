@@ -161,6 +161,12 @@ class ImageTar(object):
             format(self.tar_id, layer_num),
             e,
             file=sys.stderr)
+      except OSError as e:
+        print(
+            "Some files were unable to be extracted from image: {} layer: {}".
+            format(self.tar_id, layer_num),
+            e,
+            file=sys.stderr)
     return path
 
   def cleanup(self):
