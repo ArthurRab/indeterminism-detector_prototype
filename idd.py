@@ -259,6 +259,29 @@ def check_file_human_redable(f):
   return float(binary_chars) / float(chars) < 0.3
 
 
+def compare_files(file1_path, file2_path):
+  """Prints out a compact diff of the files.
+
+  Args:
+    file1_path: str path to file1
+    file2_path: str path to file2
+
+  Returns:
+    None
+  """
+  try:
+    file1 = open(file1_path, 'r')
+    file2 = open(file2_path, 'r')
+
+    for line in difflib.unified_diff(list(file1), list(file2)):
+      print(line)
+    print()
+  except OSError as e:
+    # Unable to print the files, probably because at
+    # least one of them is binary. Skipping it.
+    print(e, "Failed to open file for comparison")
+
+
 def find_differences(tar1_path,
                      tar2_path,
                      max_depth=float("inf"),
@@ -331,20 +354,9 @@ def find_differences(tar1_path,
 
         if check_file_human_redable(file1_path) and \
             check_file_human_redable(file2_path):
-          try:
-            file1 = open(file1_path)
-            file2 = open(file2_path)
-
-            for line in difflib.unified_diff(list(file1), list(file2)):
-              print(line)
-            print()
-          except OSError as e:
-            # Unable to print the files, probably because at
-            # least one of them is binary. Skipping it.
-            print(e, "Failed to open file for comparison")
+          compare_files(file1_path, file2_path)
         else:
           print("Skipping binary file.\n")
-
     text = ("Only in image 1:\n", "Only in image 2:\n")
 
     for i in range(2):
