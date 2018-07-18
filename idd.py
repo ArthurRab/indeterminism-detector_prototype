@@ -64,6 +64,8 @@ import string
 import sys
 import tarfile
 
+MAX_BIN_CHAR_PERCENTAGE_IN_HUMAN_READABLE_FILE = 0.3
+
 
 class ImageTar(object):
   """Wrapper around TarFile for specific use with image tarballs.
@@ -169,7 +171,8 @@ class ImageTar(object):
     return path
 
   def cleanup(self):
-    # Removes all the artifacts this object produced
+    # Removes all the artifacts this object produced and closes files
+    self.tar.close()
     shutil.rmtree(self.contents_folder)
 
 
@@ -208,7 +211,8 @@ def compdirs(left, right, diff=None, path=""):
         shallow=False):
       diff_files.append(os.path.join(path, f))
 
-  # Checks for symbolic links (filecmp.dircmp classifies ones that point to
+  # Checks for symbolic links and adds symbolic links that point to different
+  # locations to diff_files (filecmp.dircmp classifies ones that point to
   # non-existant files as funny)
   for funny_file in diff.funny_files:
     if not (os.path.islink(os.path.join(left, path, funny_file)) and
@@ -236,7 +240,7 @@ def compdirs(left, right, diff=None, path=""):
   return left_only, right_only, diff_files
 
 
-def check_file_human_redable(f):
+def check_file_human_readable(f):
   """Returns true if under 30% of the files characters are non-printable.
 
   Useful for avoiding printing out binary files
@@ -259,12 +263,13 @@ def check_file_human_redable(f):
     for char in line:
       if char not in string.printable:
         binary_chars += 1
-    chars += 1
+      chars += 1
 
-  return float(binary_chars) / float(chars) < 0.3
+  return float(binary_chars) / float(chars) < \
+        MAX_BIN_CHAR_PERCENTAGE_IN_HUMAN_READABLE_FILE
 
 
-def compare_files(file1_path, file2_path):
+def print_diffs(file1_path, file2_path):
   """Prints out a compact diff of the files.
 
   Args:
@@ -284,7 +289,7 @@ def compare_files(file1_path, file2_path):
   except OSError as e:
     # Unable to print the files, probably because at
     # least one of them is binary. Skipping it.
-    print(e, "Failed to open file for comparison")
+    print(e, "Failed to open file")
 
 
 def main():
@@ -345,10 +350,10 @@ def main():
         file1_path = os.path.join(tar1.get_path_to_layer_contents(layer), f)
         file2_path = os.path.join(tar2.get_path_to_layer_contents(layer), f)
 
-        if check_file_human_redable(file1_path) and \
-            check_file_human_redable(file2_path):
+        if check_file_human_readable(file1_path) and \
+            check_file_human_readable(file2_path):
 
-          compare_files(file1_path, file2_path)
+          print_diffs(file1_path, file2_path)
         else:
           print("Skipping binary file.\n")
     text = ("Only in image 1:\n", "Only in image 2:\n")
