@@ -88,6 +88,9 @@ class ImageTar(object):
   def __init__(self, tar_path, contents_path=""):
     """Initialize an ImageTar object.
 
+    Extracts layer information and creates a directory where
+    all extracted files will be stored.
+
     Args:
       tar_path: str, relative or absolute path to the given tarball
       contents_path: str, path where the tar's content folder will be
@@ -126,8 +129,16 @@ class ImageTar(object):
           file=sys.stderr)
 
   def get_diff_layer_indicies(self, other_tar):
-    # Returns a list of indicies of layers which differ
-    # between self and other_tar
+    '''Returns a list of indicies of layers which differ between self and other_tar.
+    
+    Args:
+      self: ImageTar - this object
+      other_tar: ImageTar of other image we want to compare with this one
+    
+    Returns:
+      An increasing list of indicies corresponding to layers
+      that are in both images but have different ids.
+    '''
     diff_layers = []
     for i in range(min(len(self.layers), len(other_tar.layers))):
       if self.layers[i] != other_tar.layers[i]:
@@ -149,31 +160,48 @@ class ImageTar(object):
       str representing path to the extracted layer contents
     """
     path = os.path.join(self.contents_folder, "layer_" + str(layer_num))
-    if not os.path.isdir(path):
-      os.mkdir(path)
-      self.tar.extract(self.layers[layer_num], path=self.contents_folder)
-      layer_tar = tarfile.open(
-          os.path.join(self.contents_folder, self.layers[layer_num]))
-      try:
-        layer_tar.extractall(path)
-      except tarfile.ExtractError as e:
-        print(
-            "Some files were unable to be extracted from image: {} layer: {}\n".
-            format(self.tar_id, layer_num),
-            e,
-            file=sys.stderr)
-      except OSError as e:
-        print(
-            "Some files were unable to be extracted from image: {} layer: {}\n".
-            format(self.tar_id, layer_num),
-            e,
-            file=sys.stderr)
+
+
+
+    if os.path.isdir(path):
+      return path
+    
+    os.mkdir(path)
+    self.tar.extract(self.layers[layer_num], path=self.contents_folder)
+    layer_tar = tarfile.open(
+        os.path.join(self.contents_folder, self.layers[layer_num]))
+    try:
+      layer_tar.extractall(path)
+    except tarfile.ExtractError as e:
+      print(
+          "Some files were unable to be extracted from image: {} layer: {}\n".
+          format(self.tar_id, layer_num),
+          e,
+          file=sys.stderr)
+    except OSError as e:
+      print(
+          "Some files were unable to be extracted from image: {} layer: {}\n".
+          format(self.tar_id, layer_num),
+          e,
+          file=sys.stderr)
+
     return path
 
-  def cleanup(self):
-    # Removes all the artifacts this object produced and closes files
+  def cleanup(self, delete_artifacts = True):
+    '''Deletes artifacts this object produces and closes open files.
+
+    Args:
+      self: ImageTar - this object
+      delete_artifacts: bool - If false, 
+        extracted artifacts are left for manual inspection
+    
+    Returns:
+      None
+
+    '''
     self.tar.close()
-    shutil.rmtree(self.contents_folder)
+    if delete_artifacts:
+      shutil.rmtree(self.contents_folder)
 
 
 def compdirs(left, right, diff=None, path=""):
@@ -287,8 +315,6 @@ def print_diffs(file1_path, file2_path):
       print(line)
     print()
   except OSError as e:
-    # Unable to print the files, probably because at
-    # least one of them is binary. Skipping it.
     print(e, "Failed to open file")
 
 
@@ -302,13 +328,12 @@ def main():
   tar1 = ImageTar(tar1_path)
   tar2 = ImageTar(tar2_path)
 
-  if not cancel_cleanup:
-    # Delete all artifacts unless asked not to (upon program exiting)
-    def cleanup():
-      tar1.cleanup()
-      tar2.cleanup()
+  # Clean up the open files and artifacts (upon program exiting)
+  def cleanup():
+    tar1.cleanup(not cancel_cleanup)
+    tar2.cleanup(not cancel_cleanup)
 
-    atexit.register(cleanup)
+  atexit.register(cleanup)
 
   if len(tar1.layers) != len(tar2.layers):
     print("Images have different number of layers")
@@ -385,12 +410,12 @@ def parse_arguments():
   parser.add_argument(
       "-c",
       "--cancel_cleanup",
-      help="leaves all the extracted files after program finishes running",
+      help="leave all the extracted files after program finishes running",
       action="store_true")
   parser.add_argument(
       "-d",
       "--first_diff",
-      help="stops after a pair of layers which differ are found",
+      help="stop after a pair of layers which differ are found",
       action="store_true")
   parser.add_argument(
       "-f",
@@ -400,7 +425,7 @@ def parse_arguments():
   parser.add_argument(
       "-l",
       "--max_layer",
-      help="only compares until given layer (exclusive, starting at 0)",
+      help="only compare until given layer (exclusive, starting at 0)",
       type=int,
       default=float("inf"))
   parser.add_argument(
