@@ -129,16 +129,15 @@ class ImageTar(object):
           file=sys.stderr)
 
   def get_diff_layer_indicies(self, other_tar):
-    '''Returns a list of indicies of layers which differ between self and other_tar.
-    
+    """Returns a list of indicies of layers which differ between self and other_tar.
+
     Args:
-      self: ImageTar - this object
       other_tar: ImageTar of other image we want to compare with this one
-    
+
     Returns:
       An increasing list of indicies corresponding to layers
       that are in both images but have different ids.
-    '''
+    """
     diff_layers = []
     for i in range(min(len(self.layers), len(other_tar.layers))):
       if self.layers[i] != other_tar.layers[i]:
@@ -161,11 +160,9 @@ class ImageTar(object):
     """
     path = os.path.join(self.contents_folder, "layer_" + str(layer_num))
 
-
-
     if os.path.isdir(path):
       return path
-    
+
     os.mkdir(path)
     self.tar.extract(self.layers[layer_num], path=self.contents_folder)
     layer_tar = tarfile.open(
@@ -187,18 +184,17 @@ class ImageTar(object):
 
     return path
 
-  def cleanup(self, delete_artifacts = True):
-    '''Deletes artifacts this object produces and closes open files.
+  def cleanup(self, delete_artifacts=True):
+    """Deletes artifacts this object produces and closes open files.
 
     Args:
-      self: ImageTar - this object
-      delete_artifacts: bool - If false, 
+      delete_artifacts: bool - If false,
         extracted artifacts are left for manual inspection
-    
+
     Returns:
       None
 
-    '''
+    """
     self.tar.close()
     if delete_artifacts:
       shutil.rmtree(self.contents_folder)
