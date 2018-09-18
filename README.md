@@ -1,4 +1,11 @@
 # indeterminism-detector_prototype
+
+This was one of my intern projects at Google in summer 2018.
+
+Now available at: https://github.com/bazelbuild/rules_docker/blob/master/contrib/idd.py
+
+
+
 Tool to detect which files cause indeterminism in the building of docker images.
 
 <pre>
